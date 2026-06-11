@@ -1,0 +1,2 @@
+ALTER TABLE `staff` MODIFY COLUMN `staffRole` enum('branch_manager','branch_owner','branch_staff','area_manager','support_staff','super_admin') NOT NULL;--> statement-breakpoint
+ALTER TABLE `point_claims` ADD `orderDate` timestamp;

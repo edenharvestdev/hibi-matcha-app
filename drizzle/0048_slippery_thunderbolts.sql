@@ -1,0 +1,1 @@
+ALTER TABLE `password_reset_tokens` MODIFY COLUMN `prt_createdBy` int;

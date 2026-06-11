@@ -1,0 +1,1 @@
+ALTER TABLE `pos_menu_items` MODIFY COLUMN `pos_mi_categoryId` int;

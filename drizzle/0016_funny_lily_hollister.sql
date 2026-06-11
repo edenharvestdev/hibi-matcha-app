@@ -1,0 +1,1 @@
+ALTER TABLE `order_issues` ADD `issueAdminNote` text;

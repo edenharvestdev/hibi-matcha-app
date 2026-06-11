@@ -1,0 +1,135 @@
+{
+  "name": "Hibi Matcha - สะสมแต้ม & รางวัล",
+  "short_name": "Hibi Matcha",
+  "description": "ระบบสะสมแต้ม รีวิว และรับรางวัลจาก Hibi Matcha Cafe — ใช้งานง่ายเหมือนแอปมือถือ",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#2d5a27",
+  "theme_color": "#2d5a27",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["food", "lifestyle", "shopping"],
+  "lang": "th",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-72x72_49f780b8.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-96x96_daba7398.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-128x128_3b2a0220.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-144x144_cda93afe.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-152x152_02fb38cc.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-180x180_426441d5.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-192x192_f6cc17d6.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-384x384_751af542.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-512x512_c0240f00.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-192x192-maskable_aa10992e.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-512x512-maskable_192f8172.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "สะสมแต้ม",
+      "short_name": "แต้ม",
+      "description": "ส่งบิลสะสมแต้มจากการสั่งอาหาร",
+      "url": "/customer/claim-points",
+      "icons": [
+        {
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-96x96_daba7398.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "รีวิวรับโค้ดฟรี",
+      "short_name": "รีวิว",
+      "description": "ส่งรีวิวรับเครื่องดื่มฟรี",
+      "url": "/customer/submit-review",
+      "icons": [
+        {
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-96x96_daba7398.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "แลกรางวัล",
+      "short_name": "รางวัล",
+      "description": "ใช้แต้มแลกรางวัลสุดพิเศษ",
+      "url": "/customer/rewards",
+      "icons": [
+        {
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-96x96_daba7398.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "แจ้งปัญหาออเดอร์",
+      "short_name": "แจ้งปัญหา",
+      "description": "แจ้งปัญหาออเดอร์ที่ไม่สมบูรณ์",
+      "url": "/customer/report-issue",
+      "icons": [
+        {
+          "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663029164707/Vnv2Yn9Lbgw8vJ5BLPM68j/icon-96x96_daba7398.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

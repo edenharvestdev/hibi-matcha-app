@@ -1,0 +1,1 @@
+ALTER TABLE `free_drink_codes` ADD `fdRemark` text;

@@ -1,0 +1,1 @@
+Welcome page screenshot: Shows Hibi Matcha logo, title, subtitle, and 3 visible category cards (A, B, C) with correct colors and descriptions. Need to scroll down to see D, F, I categories. Server running, no TS errors, 0 build errors.

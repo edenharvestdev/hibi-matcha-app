@@ -66,13 +66,19 @@ URL pattern (ผ่าน CDN): `https://cdn.hibimatcha.love/customers/reviews/g
 
 ## Sprint plan + status
 
-- [ ] **Sprint 0 — Pre-flight** (2-3 วัน) ← **ปัจจุบัน**
-  - [ ] คุณ: สมัคร GCP account + activate billing — ดู `GCP-SETUP-GUIDE.md`
-  - [ ] คุณ: สร้าง Project, Cloud SQL instance, GCS bucket
-  - [ ] คุณ: สร้าง service account + ดาวน์โหลด key.json
-  - [ ] คุณ: ส่งข้อมูล Project ID + JSON key ให้ผม
-  - [ ] ผม: เขียน OpenAI integration spec
-  - [ ] ผม: ตรวจสอบ TiDB binlog availability (replication feasibility)
+- [x] **Sprint 0 — Pre-flight** ✅ DONE (15 มิ.ย. 2026 — automated via gcloud CLI)
+  - [x] GCP account + billing already active (edenharvest.dev@gmail.com)
+  - [x] Project `hibi-matcha-prod` (number 168873510808) — billing linked to "My Billing Account"
+  - [x] APIs enabled: sqladmin, storage, run, cloudbuild, secretmanager, cloudresourcemanager, billingbudgets
+  - [x] Cloud SQL `hibi-matcha-db` — MySQL 8.0, db-g1-small, asia-southeast1, 20GB SSD, daily backup 7 days, bin-log enabled
+  - [x] Database `hibi_matcha` (utf8mb4_unicode_ci) + user `hibimatcha_app@%`
+  - [x] GCS bucket `hibimatcha-data-prod` — asia-southeast1, public access prevented, 90d → Nearline lifecycle
+  - [x] Folders: `customers/`, `staff/`, `content/`, `system/`
+  - [x] Service account `hibimatcha-app@hibi-matcha-prod.iam.gserviceaccount.com` + IAM (cloudsql.client, storage.objectAdmin, secretmanager.secretAccessor)
+  - [x] Auth: ADC (no SA key — org policy `iam.disableServiceAccountKeyCreation` enforced — ปลอดภัยกว่า)
+  - [x] Budget alert $120/mo (50/90/100% thresholds)
+  - [x] Local secrets: `~/.config/hibi-matcha/credentials.env` (mode 600, outside repo)
+  - [x] Repo: `.env.gcp.example` template + `.gitignore` updated
 
 - [ ] **Sprint 1 — Storage layer** (3-4 วัน)
   - [ ] เขียน `server/_core/storage-gcs.ts` (replace `server/storage.ts`)

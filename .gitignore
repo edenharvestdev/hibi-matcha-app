@@ -13,6 +13,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.gcp
+# (.env.gcp.example IS tracked — it's a template with no secrets)
 
 # IDE and editor files
 .vscode/

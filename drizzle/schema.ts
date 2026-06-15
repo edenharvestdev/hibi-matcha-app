@@ -148,7 +148,16 @@ export const reviewRequests = mysqlTable("review_requests", {
   rejectionReason: text("rejectionReason"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => [
+  // Per-app uniqueness — MySQL allows multiple NULLs in unique indexes,
+  // so each row only enforces uniqueness on the column relevant to its app.
+  // Grab: bookingId is the canonical key (GF numbers recycle within 1-999).
+  // Shopee: shopeeOrderId is the long unique receipt ID.
+  // LINE MAN: linemanOrderId is LMF-YYMMDD-XXXXXXXXX format and unique.
+  uniqueIndex("unique_review_grab_booking").on(table.deliveryApp, table.bookingId),
+  uniqueIndex("unique_review_shopee_orderid").on(table.deliveryApp, table.shopeeOrderId),
+  uniqueIndex("unique_review_lineman_orderid").on(table.deliveryApp, table.linemanOrderId),
+]);
 
 export type ReviewRequest = typeof reviewRequests.$inferSelect;
 export type InsertReviewRequest = typeof reviewRequests.$inferInsert;

@@ -27,6 +27,10 @@ const SHOPEE_ORDER_ID_MAX = 20;
 // LINE MAN: Order ID = LMF-YYMMDD-XXXXXXXXX
 const LINEMAN_ORDER_ID_REGEX = /^LMF-\d{6}-\d{6,12}$/;
 
+// Grab GF Number: GF- + 1-3 digits + optional letter (e.g. GF-677, GF-816T)
+// Grab recycles GF numbers within 1-999 range; 4+ digits is user-typo (e.g. GF-1190)
+const GF_NUMBER_REGEX = /^GF-\d{1,3}[A-Z]?$/;
+
 // GPOS: Receipt number = 13 digits
 const GPOS_RECEIPT_REGEX = /^\d{13}$/;
 
@@ -194,7 +198,7 @@ export default function SubmitReview() {
   const isFormValid = (() => {
     if (!branchId || !deliveryApp) return false;
     if (isGrab) {
-      if (!gfNumber.trim()) return false;
+      if (!gfNumber.trim() || !GF_NUMBER_REGEX.test(gfNumber.trim().toUpperCase())) return false;
       if (!bookingId || bookingId.length !== BOOKING_ID_LENGTH || !BOOKING_ID_REGEX.test(bookingId)) return false;
     } else if (isShopee) {
       if (!shopeeOrderNumber.trim()) return false;
@@ -289,10 +293,17 @@ export default function SubmitReview() {
                     <Label className="text-xs font-medium">เลข GF (เลขออเดอร์สั้น) <span className="text-red-500">*</span></Label>
                     <Input
                       value={gfNumber}
-                      onChange={(e) => setGfNumber(e.target.value)}
+                      onChange={(e) => setGfNumber(e.target.value.toUpperCase())}
                       placeholder="เช่น GF-677"
-                      className="font-mono"
+                      maxLength={6}
+                      className={`font-mono ${
+                        gfNumber.trim() && !GF_NUMBER_REGEX.test(gfNumber.trim()) ? "border-red-400 focus-visible:ring-red-400" :
+                        gfNumber.trim() && GF_NUMBER_REGEX.test(gfNumber.trim()) ? "border-green-400 focus-visible:ring-green-400" : ""
+                      }`}
                     />
+                    {gfNumber.trim() && !GF_NUMBER_REGEX.test(gfNumber.trim()) && (
+                      <p className="text-[10px] text-red-500">❌ ต้องเป็น GF- ตามด้วยตัวเลข 1-3 หลัก (Grab หมุนเวียนเลข 1-999)</p>
+                    )}
                     <p className="text-[10px] text-muted-foreground">ดูจากหน้า History ของ Grab (เช่น GF-677, GF-132)</p>
                   </div>
 

@@ -344,6 +344,13 @@
       "when": 1779421310690,
       "tag": "0048_slippery_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "5",
+      "when": 1781499507435,
+      "tag": "0049_nasty_william_stryker",
+      "breakpoints": true
     }
   ]
 }

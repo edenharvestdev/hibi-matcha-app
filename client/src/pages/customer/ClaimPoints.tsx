@@ -40,6 +40,10 @@ const SHOPEE_ORDER_ID_MAX = 20;
 // LINE MAN Order ID format: LMF-YYMMDD-XXXXXXXXX
 const LINEMAN_ORDER_ID_REGEX = /^LMF-\d{6}-\d{6,12}$/;
 
+// Grab GF Number format: GF- + 1-3 digits + optional letter (e.g. GF-677, GF-816T)
+// Grab recycles GF numbers within 1-999 range; 4+ digits is user-typo (e.g. GF-1190)
+const GF_NUMBER_REGEX = /^GF-\d{1,3}[A-Z]?$/;
+
 export default function ClaimPoints() {
   const { session, loading, isCustomer } = useHibiAuth();
   const [, setLocation] = useLocation();
@@ -206,6 +210,11 @@ export default function ClaimPoints() {
         toast.error("⚠️ กรุณากรอกเลข GF — ดูจากหน้า History ของ Grab (เช่น GF-677)");
         return;
       }
+      const gfTrimmed = gfNumber.trim().toUpperCase();
+      if (!GF_NUMBER_REGEX.test(gfTrimmed)) {
+        toast.error("❌ เลข GF ไม่ถูกรูปแบบ — ต้องเป็น GF- ตามด้วยตัวเลข 1-3 หลัก (เช่น GF-677) — Grab ใช้เลข 1-999 เท่านั้น");
+        return;
+      }
       if (!bookingId.trim()) {
         toast.error("⚠️ กรุณากรอก Booking ID — รหัสยืนยัน 16 ตัว (เช่น A-949862QGXXISAV)");
         return;
@@ -360,10 +369,19 @@ export default function ClaimPoints() {
                     </Label>
                     <Input
                       value={gfNumber}
-                      onChange={(e) => setGfNumber(e.target.value)}
+                      onChange={(e) => setGfNumber(e.target.value.toUpperCase())}
                       placeholder="เช่น GF-677"
-                      className="font-mono"
+                      maxLength={6}
+                      className={`font-mono ${
+                        gfNumber.trim() && !GF_NUMBER_REGEX.test(gfNumber.trim()) ? "border-red-400 focus-visible:ring-red-400" :
+                        gfNumber.trim() && GF_NUMBER_REGEX.test(gfNumber.trim()) ? "border-green-400 focus-visible:ring-green-400" : ""
+                      }`}
                     />
+                    {gfNumber.trim() && !GF_NUMBER_REGEX.test(gfNumber.trim()) && (
+                      <p className="text-[10px] text-red-500 mt-1">
+                        ❌ ต้องเป็น GF- ตามด้วยตัวเลข 1-3 หลัก (Grab หมุนเวียนเลข 1-999)
+                      </p>
+                    )}
                     <p className="text-[10px] text-muted-foreground mt-1">
                       ดูจากหน้า History ของ Grab (เช่น GF-677, GF-132)
                     </p>

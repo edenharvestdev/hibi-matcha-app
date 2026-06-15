@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { rateLimit, rateLimitReset } from "./_core/rateLimit";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -57,7 +58,7 @@ import {
   getPasswordResetRequestById, updatePasswordResetRequestStatus,
   createPasswordResetToken, getPasswordResetTokenByToken, markPasswordResetTokenUsed,
   getCustomerByEmail, updateCustomerPassword,
-  deletePasswordResetTokensByCustomer, getLatestOtpTokenByCustomer,
+  deletePasswordResetTokensByCustomer, deleteOtpTokensByCustomer, getLatestOtpTokenByCustomer,
   listCustomers, countCustomers,
   getPettyCashSettings, upsertPettyCashSettings,
   getPettyCashBalance, listPettyCashTransactions, countPettyCashTransactions,
@@ -472,10 +473,22 @@ export const appRouter = router({
       if (cleanPhone.startsWith("66") && cleanPhone.length >= 11) {
         cleanPhone = "0" + cleanPhone.slice(2);
       }
+
+      // Brute-force protection: 10 attempts per phone per 15 min
+      const rlKey = `login:${cleanPhone}`;
+      const rl = rateLimit(rlKey, 10, 15 * 60 * 1000);
+      if (!rl.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `ลองเข้าสู่ระบบผิดเกินกำหนด — กรุณารอ ${Math.ceil(rl.resetSec / 60)} นาที แล้วลองใหม่`,
+        });
+      }
+
       const customer = await getCustomerByPhone(cleanPhone);
       if (customer) {
         const valid = await bcrypt.compare(input.password, customer.passwordHash);
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "รหัสผ่านไม่ถูกต้อง" });
+        rateLimitReset(rlKey); // success — clear bucket
         const token = await createSessionToken({ type: "customer", id: customer.id, role: "customer" });
         ctx.res.cookie(HIBI_SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 });
         return { success: true, role: "customer" as const, name: customer.name };
@@ -485,6 +498,7 @@ export const appRouter = router({
         if (!staffMember.isActive) throw new TRPCError({ code: "FORBIDDEN", message: "บัญชีนี้ถูกระงับ" });
         const valid = await bcrypt.compare(input.password, staffMember.passwordHash);
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "รหัสผ่านไม่ถูกต้อง" });
+        rateLimitReset(rlKey); // success — clear bucket
         const token = await createSessionToken({ type: "staff", id: staffMember.id, role: staffMember.role });
         ctx.res.cookie(HIBI_SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 });
         return { success: true, role: staffMember.role as "branch_manager" | "branch_owner" | "branch_staff" | "area_manager" | "support_staff" | "super_admin", name: staffMember.name };
@@ -497,11 +511,21 @@ export const appRouter = router({
       employeeCode: z.string().min(1),
       password: z.string(),
     })).mutation(async ({ input, ctx }) => {
+      // Brute-force protection: 10 attempts per employee code per 15 min
+      const rlKey = `stafflogin:${input.employeeCode.trim().toUpperCase()}`;
+      const rl = rateLimit(rlKey, 10, 15 * 60 * 1000);
+      if (!rl.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `ลองเข้าสู่ระบบผิดเกินกำหนด — กรุณารอ ${Math.ceil(rl.resetSec / 60)} นาที แล้วลองใหม่`,
+        });
+      }
       const staffMember = await getStaffByEmployeeCode(input.employeeCode);
       if (!staffMember) throw new TRPCError({ code: "UNAUTHORIZED", message: "\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e23\u0e2b\u0e31\u0e2a\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19\u0e19\u0e35\u0e49\u0e43\u0e19\u0e23\u0e30\u0e1a\u0e1a" });
       if (!staffMember.isActive) throw new TRPCError({ code: "FORBIDDEN", message: "\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e19\u0e35\u0e49\u0e16\u0e39\u0e01\u0e23\u0e30\u0e07\u0e31\u0e1a" });
       const valid = await bcrypt.compare(input.password, staffMember.passwordHash);
       if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19\u0e44\u0e21\u0e48\u0e16\u0e39\u0e01\u0e15\u0e49\u0e2d\u0e07" });
+      rateLimitReset(rlKey); // success — clear bucket
       const token = await createSessionToken({ type: "staff", id: staffMember.id, role: staffMember.role });
       ctx.res.cookie(HIBI_SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: "none", path: "/", maxAge: 7 * 24 * 60 * 60 * 1000 });
       return { success: true, role: staffMember.role as "branch_manager" | "branch_owner" | "branch_staff" | "area_manager" | "support_staff" | "super_admin", name: staffMember.name };
@@ -883,6 +907,40 @@ export const appRouter = router({
       orderImageType: z.string().optional(),
     })).mutation(async ({ input, ctx }) => {
       if (ctx.hibiSession!.type !== "customer") throw new TRPCError({ code: "FORBIDDEN", message: "เฉพาะลูกค้าเท่านั้น" });
+
+      // Per-app input format validation (defense in depth — frontend also validates)
+      if (input.deliveryApp === "grab") {
+        if (input.gfNumber) {
+          const gfTrimmed = input.gfNumber.trim().toUpperCase();
+          if (!/^GF-\d{1,3}[A-Z]?$/.test(gfTrimmed)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "เลข GF ไม่ถูกรูปแบบ — ต้องเป็น GF- ตามด้วยตัวเลข 1-3 หลัก (เช่น GF-677) — Grab ใช้เลข 1-999 เท่านั้น" });
+          }
+          input.gfNumber = gfTrimmed;
+          input.orderId = gfTrimmed;
+        }
+        if (input.bookingId) {
+          const bookingIdTrimmed = input.bookingId.trim().toUpperCase();
+          if (!/^A-[A-Z0-9]{14}$/.test(bookingIdTrimmed)) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Booking ID ต้องขึ้นต้นด้วย A- ตามด้วยตัวอักษร/ตัวเลข 14 ตัว (รวม 16 ตัว) เช่น A-949862QGXXISAV" });
+          }
+          input.bookingId = bookingIdTrimmed;
+        }
+      }
+      if (input.deliveryApp === "lineman" && input.linemanOrderId) {
+        const linemanIdTrimmed = input.linemanOrderId.trim().toUpperCase();
+        if (!/^LMF-\d{6}-\d{6,12}$/.test(linemanIdTrimmed)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "รหัสใบสั่งซื้อ LINE MAN ต้องอยู่ในรูปแบบ LMF-YYMMDD-XXXXXXXXX เช่น LMF-260321-538845175" });
+        }
+        input.linemanOrderId = linemanIdTrimmed;
+      }
+      if (input.deliveryApp === "shopee" && input.shopeeOrderId) {
+        const shopeeIdTrimmed = input.shopeeOrderId.trim();
+        if (!/^\d{16,20}$/.test(shopeeIdTrimmed)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "เลขคำสั่งซื้อ Shopee ต้องเป็นตัวเลข 16-20 หลัก เช่น 3011303289058816525" });
+        }
+        input.shopeeOrderId = shopeeIdTrimmed;
+      }
+
       // ตรวจสอบว่า Order ID นี้ได้รับอนุมัติแล้วหรือยัง (1 คำสั่งซื้อ = 1 โค้ด)
       // Shopee/Lineman: ใช้เลขคำสั่งซื้อยาว (unique จริง) แทนเลขสั้นที่ซ้ำได้
       // Grab: ใช้ bookingId (A-XXXXXXXXXXXXXX) ซึ่ง unique จริง — GF number ซ้ำได้เพราะ Grab หมุนวนใช้
@@ -1467,6 +1525,12 @@ export const appRouter = router({
         if (!input.gfNumber || !input.gfNumber.trim()) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "กรุณากรอกเลข GF (เช่น GF-677)" });
         }
+        // Validate gfNumber format: GF- + 1-3 digits + optional letter (Grab uses 1-999)
+        const gfTrimmed = input.gfNumber.trim().toUpperCase();
+        if (!/^GF-\d{1,3}[A-Z]?$/.test(gfTrimmed)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "เลข GF ไม่ถูกรูปแบบ — ต้องเป็น GF- ตามด้วยตัวเลข 1-3 หลัก (เช่น GF-677) — Grab ใช้เลข 1-999 เท่านั้น" });
+        }
+        input.gfNumber = gfTrimmed;
         if (!input.bookingId || !input.bookingId.trim()) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "กรุณากรอก Booking ID (เช่น A-949862QGXXISAV)" });
         }
@@ -2131,14 +2195,22 @@ export const appRouter = router({
   inquiries: router({
     submit: publicProcedure.input(z.object({
       type: z.enum(["franchise", "wholesale", "event", "other"]),
-      name: z.string().min(1),
+      name: z.string().min(1).max(255),
       phone: z.string().min(9).max(15),
-      email: z.string().email().optional(),
-      company: z.string().optional(),
-      message: z.string().min(10),
-      budget: z.string().optional(),
-      province: z.string().optional(),
+      email: z.string().email().max(320).optional(),
+      company: z.string().max(255).optional(),
+      message: z.string().min(10).max(5000),
+      budget: z.string().max(100).optional(),
+      province: z.string().max(100).optional(),
     })).mutation(async ({ input }) => {
+      // Spam protection: 3 inquiries per phone per hour
+      const rl = rateLimit(`inquiry:${input.phone.replace(/\D/g, "")}`, 3, 60 * 60 * 1000);
+      if (!rl.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `ส่งข้อความติดต่อบ่อยเกินไป — กรุณารอ ${Math.ceil(rl.resetSec / 60)} นาที`,
+        });
+      }
       const id = await createContactInquiry(input as any);
       const typeLabels: Record<string, string> = { franchise: "แฟรนไชส์", wholesale: "สั่งซื้อราคาส่ง", event: "จัดงาน Event", other: "อื่นๆ" };
       // Notify owner - เฉพาะแฟรนไชส์และจัดงาน Event เท่านั้น
@@ -3293,13 +3365,23 @@ export const appRouter = router({
   passwordReset: router({
     // Customer requests password reset (public)
     request: publicProcedure.input(z.object({
-      identifier: z.string().min(1),
+      identifier: z.string().min(1).max(320),
       identifierType: z.enum(["phone", "email"]),
     })).mutation(async ({ input }) => {
       const cleanIdentifier = input.identifierType === "phone"
         ? input.identifier.replace(/\D/g, "")
         : input.identifier.trim().toLowerCase();
-      // Find customer
+
+      // Spam protection: 3 reset requests per identifier per hour (prevents
+      // attacker spamming admin queue + DB bloat with bogus requests)
+      const rl = rateLimit(`pwreset:${cleanIdentifier}`, 3, 60 * 60 * 1000);
+      if (!rl.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `ขอรีเซ็ตบ่อยเกินไป — กรุณารอ ${Math.ceil(rl.resetSec / 60)} นาที`,
+        });
+      }
+
       let customer;
       if (input.identifierType === "phone") {
         customer = await getCustomerByPhone(cleanIdentifier);
@@ -3307,7 +3389,6 @@ export const appRouter = router({
         customer = await getCustomerByEmail(cleanIdentifier);
       }
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "ไม่พบบัญชีที่ตรงกับข้อมูลนี้" });
-      // Create request
       await createPasswordResetRequest({
         customerId: customer.id,
         identifier: cleanIdentifier,
@@ -3410,14 +3491,25 @@ export const appRouter = router({
       phone: z.string().min(1),
     })).mutation(async ({ input }) => {
       const cleanPhone = input.phone.replace(/\D/g, "");
+
+      // Throttle: 1 OTP request per phone per 60 seconds (prevents email spam)
+      const rl = rateLimit(`otp_req:${cleanPhone}`, 1, 60 * 1000);
+      if (!rl.ok) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `กรุณารอ ${rl.resetSec} วินาที ก่อนขอ OTP ใหม่`,
+        });
+      }
+
       const customer = await getCustomerByPhone(cleanPhone);
       if (!customer) return { success: true }; // Don't reveal if phone exists
       if (!customer.email) return { success: true }; // No email, can't send OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      // Delete old tokens for this customer
-      await deletePasswordResetTokensByCustomer(customer.id);
-      // Insert new OTP token (expire 15 min)
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      // Reset failure counter when a fresh OTP is issued
+      rateLimitReset(`otp_confirm:${customer.id}`);
+      // Delete only previous OTP tokens — admin-generated reset tokens are preserved
+      await deleteOtpTokensByCustomer(customer.id);
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
       await createPasswordResetToken({
         customerId: customer.id,
         token: otp,
@@ -3425,7 +3517,6 @@ export const appRouter = router({
         createdBy: null,
         expiresAt,
       });
-      // Send OTP via email
       const { sendOtpEmail } = await import("./lib/email");
       await sendOtpEmail(customer.email, otp, customer.name);
       return { success: true };
@@ -3439,18 +3530,35 @@ export const appRouter = router({
       const cleanPhone = input.phone.replace(/\D/g, "");
       const customer = await getCustomerByPhone(cleanPhone);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "ไม่พบเบอร์นี้ในระบบ" });
-      // Get latest token for this customer
+
+      // Brute-force protection: 5 wrong OTPs per customer per 15 min
+      const rlKey = `otp_confirm:${customer.id}`;
+      const rl = rateLimit(rlKey, 5, 15 * 60 * 1000);
+      if (!rl.ok) {
+        // Invalidate active OTP so attacker can't resume after lockout window
+        await deleteOtpTokensByCustomer(customer.id);
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `ใส่ OTP ผิดเกินกำหนด — OTP ถูกยกเลิก กรุณารอ ${Math.ceil(rl.resetSec / 60)} นาที แล้วขอใหม่`,
+        });
+      }
+
       const tokenRow = await getLatestOtpTokenByCustomer(customer.id);
       if (!tokenRow) throw new TRPCError({ code: "BAD_REQUEST", message: "ไม่พบ OTP กรุณาขอใหม่" });
       if (new Date() > tokenRow.expiresAt) throw new TRPCError({ code: "BAD_REQUEST", message: "OTP หมดอายุแล้ว กรุณาขอใหม่" });
       if (tokenRow.usedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "OTP นี้ถูกใช้แล้ว กรุณาขอใหม่" });
-      if (tokenRow.token !== input.otp) throw new TRPCError({ code: "BAD_REQUEST", message: "OTP ไม่ถูกต้อง" });
-      // Reset password
-      const passwordHash = await bcrypt.hash(input.newPassword, 10);
+      if (tokenRow.token !== input.otp) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: rl.remaining > 0 ? `OTP ไม่ถูกต้อง (เหลืออีก ${rl.remaining} ครั้ง)` : "OTP ไม่ถูกต้อง",
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(input.newPassword, 12);
       await updateCustomerPassword(customer.id, passwordHash);
-      // Mark token as used and cleanup
       await markPasswordResetTokenUsed(tokenRow.id);
-      await deletePasswordResetTokensByCustomer(customer.id);
+      await deleteOtpTokensByCustomer(customer.id);
+      rateLimitReset(rlKey); // success — clear failure bucket
       return { success: true };
     }),
   }),

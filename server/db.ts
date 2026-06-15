@@ -834,7 +834,15 @@ export async function listEarnStoreHistory(limit = 30, offset = 0, dateFrom?: Da
 }
 
 // ── Point Claims (Delivery) ──
+// IMPORTANT: This function uses exact-match on `orderId` and is unsafe for `grab`
+// because Grab recycles GF numbers (1-999). Callers MUST gate with
+// `if (deliveryApp !== "grab")` and use checkBookingIdApproved/Pending for Grab.
+// See routers.ts submitClaim for the canonical guarded call.
 export async function checkExistingClaim(deliveryApp: string, orderId: string) {
+  if (deliveryApp === "grab") {
+    // Hard guard against accidental misuse — Grab uses bookingId for uniqueness.
+    return null;
+  }
   const db = await getDb();
   if (!db) return null;
   const result = await db.select({ id: pointClaims.id, status: pointClaims.status })
@@ -4623,11 +4631,31 @@ export async function deletePasswordResetTokensByCustomer(customerId: number) {
   await db.delete(passwordResetTokens).where(eq(passwordResetTokens.customerId, customerId));
 }
 
+/**
+ * Delete only self-service OTP tokens (createdBy IS NULL) for a customer.
+ * Admin-generated reset tokens (createdBy = staff.id) are preserved so that
+ * an admin-initiated reset isn't accidentally invalidated when the customer
+ * requests an OTP, and vice versa.
+ */
+export async function deleteOtpTokensByCustomer(customerId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(passwordResetTokens).where(
+    and(
+      eq(passwordResetTokens.customerId, customerId),
+      isNull(passwordResetTokens.createdBy),
+    )
+  );
+}
+
 export async function getLatestOtpTokenByCustomer(customerId: number) {
   const db = await getDb();
   if (!db) return null;
   const [row] = await db.select().from(passwordResetTokens)
-    .where(eq(passwordResetTokens.customerId, customerId))
+    .where(and(
+      eq(passwordResetTokens.customerId, customerId),
+      isNull(passwordResetTokens.createdBy),
+    ))
     .orderBy(desc(passwordResetTokens.createdAt))
     .limit(1);
   return row ?? null;
